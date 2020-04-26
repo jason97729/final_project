@@ -224,25 +224,7 @@ def load_bing_coronavirus_data():
     conn.commit()
     conn.close()
 
-            
-
-
-    '''
-    print('Total cases by state:')
-    for state in us_states:
-        print(f'{state["displayName"]} : {state["totalConfirmed"]}')
-        for county in state['areas']:
-            print(f'{county["displayName"]} : {county["totalConfirmed"]}')
-    print('\nTotal death by state:')
-    for state in us_states:
-        print(f'{state["displayName"]} : {state["totalDeaths"]}')
-        for county in state['areas']:
-            print(f'{county["displayName"]} : {county["totalDeaths"]}')
-    '''
-
-
 app = Flask(__name__)
-
 
 def get_state():
     conn = sqlite3.connect(DB_NAME)
@@ -255,6 +237,34 @@ def get_state():
     conn.close()
     return results
 
+def bar_graph(results):
+    names = [r[0] for r in results]
+    confirmed_cases = [r[1] for r in results]
+    confirmed_deaths = [r[2] for r in results]
+    cases_data = go.Bar(
+        name='Confirmed Cases',
+        x=names,
+        y=confirmed_cases
+    )
+    deaths_data = go.Bar(
+        name='Confirmed Deaths',
+        x=names,
+        y=confirmed_deaths
+    )
+    fig = go.Figure(data=[cases_data, deaths_data])
+    fig.update_layout(title_text='Bar Chart for Confirmed Cases and Deaths')
+    div = fig.to_html(full_html=False)
+    return div
+
+def pie_chart(results, values, title):
+    labels = [r[0] for r in results]
+    values = values
+    data = go.Pie(labels=labels, values=values)
+    fig = go.Figure(data=data)
+    fig.update_layout(title_text=title)
+    div = fig.to_html(full_html=False)
+    return div
+
 @app.route('/')
 def index():
     CACHE_FILENAME = "bing_cache.json"
@@ -262,29 +272,21 @@ def index():
     bing_data = open_cache(CACHE_FILENAME)
     world_areas = bing_data['https://bing.com/covid/data_']['areas']
     united_states = world_areas[0]
+    results = get_state()
+    bar_graph_div = bar_graph(results)
+    pie_chart_cases = pie_chart(results, [r[1] for r in results], 'Pie Chart for Confirmed Cases')
+    pie_chart_deaths = pie_chart(results, [r[2] for r in results], 'Pie Chart for Confirmed Deaths')
+
     
-    states = [r[0] for r in get_state()]
-    confirmed_cases = [r[1] for r in get_state()]
-    confirmed_deaths = [r[2] for r in get_state()]
-    cases_data = go.Bar(
-        name='Confirmed Cases',
-        x=states,
-        y=confirmed_cases
-    )
-    deaths_data = go.Bar(
-        name='Confirmed Deaths',
-        x=states,
-        y=confirmed_deaths
-    )
-    fig = go.Figure(data=[cases_data, deaths_data])
-    div = fig.to_html(full_html=False)
     
     return render_template('index.html', 
                             title_and_url_dic=ny_times(), 
                             us_confirmed=united_states["totalConfirmed"], 
                             us_death=united_states["totalDeaths"],
-                            results=get_state(),
-                            plot_div=div)
+                            results=results,
+                            bar_graph_div=bar_graph_div,
+                            cases_div=pie_chart_cases,
+                            deaths_div=pie_chart_deaths)
 
 
 
@@ -295,27 +297,16 @@ def county(state):
     q = f"SELECT Counties.Name, Counties.TotalConfirmed, Counties.TotalDeaths, States.TotalConfirmed, States.TotalDeaths FROM Counties JOIN States ON Counties.StateId = States.Id WHERE States.Name = '{state}'"
     results = cur.execute(q).fetchall()
     conn.close()  
-
-    counties = [r[0] for r in results]
-    confirmed_cases = [r[1] for r in results]
-    confirmed_deaths = [r[2] for r in results]
-    cases_data = go.Bar(
-        name='Confirmed Cases',
-        x=counties,
-        y=confirmed_cases
-    )
-    deaths_data = go.Bar(
-        name='Confirmed Deaths',
-        x=counties,
-        y=confirmed_deaths
-    )
-    fig = go.Figure(data=[cases_data, deaths_data])
-    div = fig.to_html(full_html=False)
+    bar_graph_div = bar_graph(results)
+    pie_chart_cases = pie_chart(results, [r[1] for r in results], 'Confirmed Cases')
+    pie_chart_deaths = pie_chart(results, [r[2] for r in results], 'Confirmed Deaths')
 
     return render_template('state.html', 
         state=state,
         results=results,
-        plot_div=div)
+        bar_graph_div=bar_graph_div,
+        cases_div=pie_chart_cases,
+        deaths_div=pie_chart_deaths)
 
 if __name__ == '__main__':
     create_db()
