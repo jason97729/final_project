@@ -1,7 +1,9 @@
+from flask import Flask, render_template
 import requests
 import secrets # file that contains your API key
 import json
 import sqlite3
+import plotly.graph_objects as go
 
 
 CACHE_DICT = {}
@@ -122,7 +124,7 @@ def ny_times():
     API_KEY = secrets.api_key 
     base_url = 'https://api.nytimes.com/svc/topstories/v2/health.json'
     params = {"api-key": API_KEY}
-    ny_times_data = make_request_with_cache(CACHE_FILENAME, base_url, params)
+    ny_times_data = make_request_with_cache(CACHE_FILENAME, base_url, params=params)
     results_list = ny_times_data['results']
     titles_and_urls = {}
     count = 0
@@ -132,7 +134,8 @@ def ny_times():
             url = t['url']
             titles_and_urls[title] = url
             count += 1
-    print(titles_and_urls)
+    return titles_and_urls
+    
 
 def create_db():
     conn = sqlite3.connect(DB_NAME)
@@ -168,10 +171,9 @@ def create_db():
 def load_bing_coronavirus_data():
     CACHE_FILENAME = "bing_cache.json"
     bing_url = "https://bing.com/covid/data"
-    bing_data = make_request_with_cache(CACHE_FILENAME, bing_url, {})
-    world_areas = bing_data['areas']
+    bing_data = open_cache(CACHE_FILENAME)
+    world_areas = bing_data['https://bing.com/covid/data_']['areas']
     united_states = world_areas[0]
-    print(f'United States Total Cases :  {united_states["totalConfirmed"]} \n')
     us_states = united_states['areas']
 
     insert_states_sql = '''
@@ -238,7 +240,85 @@ def load_bing_coronavirus_data():
             print(f'{county["displayName"]} : {county["totalDeaths"]}')
     '''
 
-#ny_times()
-create_db()
-load_bing_coronavirus_data()
+
+app = Flask(__name__)
+
+
+def get_state():
+    conn = sqlite3.connect(DB_NAME)
+    cur = conn.cursor()
+    q = '''
+        SELECT name, TotalConfirmed, TotalDeaths
+        From States
+    '''
+    results = cur.execute(q).fetchall()
+    conn.close()
+    return results
+
+@app.route('/')
+def index():
+    CACHE_FILENAME = "bing_cache.json"
+    bing_url = "https://bing.com/covid/data"
+    bing_data = open_cache(CACHE_FILENAME)
+    world_areas = bing_data['https://bing.com/covid/data_']['areas']
+    united_states = world_areas[0]
+    
+    states = [r[0] for r in get_state()]
+    confirmed_cases = [r[1] for r in get_state()]
+    confirmed_deaths = [r[2] for r in get_state()]
+    cases_data = go.Bar(
+        name='Confirmed Cases',
+        x=states,
+        y=confirmed_cases
+    )
+    deaths_data = go.Bar(
+        name='Confirmed Deaths',
+        x=states,
+        y=confirmed_deaths
+    )
+    fig = go.Figure(data=[cases_data, deaths_data])
+    div = fig.to_html(full_html=False)
+    
+    return render_template('index.html', 
+                            title_and_url_dic=ny_times(), 
+                            us_confirmed=united_states["totalConfirmed"], 
+                            us_death=united_states["totalDeaths"],
+                            results=get_state(),
+                            plot_div=div)
+
+
+
+@app.route('/<state>')
+def county(state):  
+    conn = sqlite3.connect(DB_NAME)
+    cur = conn.cursor()
+    q = f"SELECT Counties.Name, Counties.TotalConfirmed, Counties.TotalDeaths, States.TotalConfirmed, States.TotalDeaths FROM Counties JOIN States ON Counties.StateId = States.Id WHERE States.Name = '{state}'"
+    results = cur.execute(q).fetchall()
+    conn.close()  
+
+    counties = [r[0] for r in results]
+    confirmed_cases = [r[1] for r in results]
+    confirmed_deaths = [r[2] for r in results]
+    cases_data = go.Bar(
+        name='Confirmed Cases',
+        x=counties,
+        y=confirmed_cases
+    )
+    deaths_data = go.Bar(
+        name='Confirmed Deaths',
+        x=counties,
+        y=confirmed_deaths
+    )
+    fig = go.Figure(data=[cases_data, deaths_data])
+    div = fig.to_html(full_html=False)
+
+    return render_template('state.html', 
+        state=state,
+        results=results,
+        plot_div=div)
+
+if __name__ == '__main__':
+    create_db()
+    load_bing_coronavirus_data()
+    app.run(debug=True)
 

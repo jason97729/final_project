@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>COVID-19 Data and News</title>
+  <style>
+    table, th, td {
+        border: 1px solid black;
+        border-collapse: collapse;
+        padding: 5px;
+    }
+  </style>
+</head>
+<body>
+
+    <h1>Welcome to COVID-19 Data and News </h1>
+    
+    <h2>Today's health headlines are...</h2>
+
+    <ol>
+        {% for key, value in title_and_url_dic.items() %}
+            <li><a href="{{value}}">{{key}}</a></li>
+        {% endfor %}
+    </ol>
+
+    <h2>COVID-19 in United States (Updated: 4/21/2020)</h2>
+    <p>United States Total Cases Confirm: {{us_confirmed}}</p>
+    <p>United States Total Death: {{us_death}} </p>
+
+    <table>
+        <tr>
+            <th>State</th>
+            <th>Confirmed Cases</th>
+            <th>Deaths</th>
+        </tr>
+        {% for row in results %}
+        <tr>
+            <td><a href="/{{row[0]}}">{{row[0]}}</a></td>
+            <td>{{row[1]}}</td>
+            <td>{{row[2]}}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    {{plot_div | safe}}
+
+</body>
+</html>

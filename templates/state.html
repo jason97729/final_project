@@ -1,0 +1,39 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF8"/>
+    <title>COVID-19 County Data</title>
+    <style>
+        table, th, td {
+            border: 1px solid black;
+            border-collapse: collapse;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>COVID-19 in {{state}}</h1>
+    
+    <p>{{state}} Total Cases Confirm: {{results[0][3]}}</p>  
+    <p>{{state}} Total Death: {{results[0][4]}}</p>
+
+    
+    <table>
+        <tr>
+            <th>County</th>
+            <th>Confirmed Cases</th>
+            <th>Deaths</th>
+        </tr>
+        {% for row in results %}
+        <tr>
+            <td>{{row[0]}}</a></td>
+            <td>{{row[1]}}</td>
+            <td>{{row[2]}}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    {{plot_div | safe}}
+</body>
+</html>
