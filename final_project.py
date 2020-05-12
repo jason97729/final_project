@@ -296,7 +296,9 @@ def county(state):
     cur = conn.cursor()
     q = f"SELECT Counties.Name, Counties.TotalConfirmed, Counties.TotalDeaths, States.TotalConfirmed, States.TotalDeaths FROM Counties JOIN States ON Counties.StateId = States.Id WHERE States.Name = '{state}'"
     results = cur.execute(q).fetchall()
-    conn.close()  
+    q = f"SELECT TotalConfirmed, TotalDeaths FROM States WHERE Name = '{state}'"
+    state_info = cur.execute(q).fetchone()
+    conn.close()
     bar_graph_div = bar_graph(results)
     pie_chart_cases = pie_chart(results, [r[1] for r in results], 'Confirmed Cases')
     pie_chart_deaths = pie_chart(results, [r[2] for r in results], 'Confirmed Deaths')
@@ -304,6 +306,7 @@ def county(state):
     return render_template('state.html', 
         state=state,
         results=results,
+        state_info=state_info,
         bar_graph_div=bar_graph_div,
         cases_div=pie_chart_cases,
         deaths_div=pie_chart_deaths)
